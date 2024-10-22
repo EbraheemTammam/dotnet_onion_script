@@ -10,9 +10,9 @@
 > for permenant usage you can add it to your $PROFILE
 
 ## Usage
-1- craete a new folder with the desired project name \
-2- navigate to the folder \
-3- run the following command:
+1- Create a new folder with the desired project name \
+2- Navigate to the folder \
+3- Run the following command:
 ```powershell
 onion
 ```

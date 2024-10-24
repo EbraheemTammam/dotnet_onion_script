@@ -547,6 +547,7 @@ public static class WebAppExtensions
     {
         app.UseHttpsRedirection();
         app.UseAuthentication();
+        app.UseCors("CorsPolicy");
         app.UseAuthorization();
         app.MapControllers();
         if (app.Environment.IsDevelopment())

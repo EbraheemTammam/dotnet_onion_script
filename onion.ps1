@@ -33,6 +33,7 @@ function onion {
     Set-Location "../$project_name.Infrastructure"
     dotnet add reference "../$project_name.Domain"
     dotnet add package Microsoft.EntityFrameworkCore.SqlServer
+    dotnet add package Microsoft.EntityFrameworkCore.Design
 
     Set-Location "../$project_name.API"
     dotnet add reference "../$project_name.Application"

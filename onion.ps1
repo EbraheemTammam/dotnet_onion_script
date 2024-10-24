@@ -97,6 +97,18 @@ public interface IRepositoryManager : IDisposable
 }
 "@
 
+    Set-Content -Path "$project_name.Domain/Models/User.cs" -Value @"
+using Microsoft.AspNetCore.Identity;
+using $project_name.Domain.Abstractions;
+
+namespace $project_name.Domain.Models;
+
+public class User : IdentityUser<Guid>
+{
+    public DateTime CreatedAt { get; set; }
+}
+"@
+
     # application layer default files content
     New-Item -ItemType Directory -Path "$project_name.Application/DTOs"
     New-Item -ItemType Directory -Path "$project_name.Application/Mappers"
@@ -221,18 +233,18 @@ public static class DependencyInjection
 
     # infrastructure layer default files content
     New-Item -ItemType Directory -Path "$project_name.Infrastructure/Data"
-    New-Item -ItemType Directory -Path "$project_name.Infrastructure/Data/Configurations"
+    New-Item -ItemType Directory -Path "$project_name.Infrastructure/Data/Configuration"
     New-Item -ItemType Directory -Path "$project_name.Infrastructure/Repositories"
     New-Item -ItemType Directory -Path "$project_name.Infrastructure/Utilities"
 
     Set-Content -Path "$project_name.Infrastructure/Data/ApplicationDbContext.cs" -Value @"
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using $project_name.Domain.Models;
 
 namespace $project_name.Infrastructure.Data;
 
-public sealed class ApplicationDbContext: IdentityDbContext<IdentityUser<Guid>, IdentityRole<Guid>, Guid>
+public sealed class ApplicationDbContext: IdentityDbContext<User, IdentityRole<Guid>, Guid>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : base(options){}
@@ -318,6 +330,23 @@ public static class DependencyInjection
         services.AddScoped<IRepositoryManager, RepositoryManager>();
         services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
         return services;
+    }
+}
+"@
+
+    Set-Content -Path "$project_name.Infrastructure/Data/Configuration/UserConfiguration.cs" -Value @"
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using $project_name.Domain.Models;
+
+namespace $project_name.Infrastructure.Data.Configuration;
+
+
+public class UserConfiguration : IEntityTypeConfiguration<User>
+{
+    public void Configure(EntityTypeBuilder<User> builder)
+    {
+        builder.HasKey(user => user.Id);
     }
 }
 "@
@@ -416,6 +445,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using $project_name.Domain.Models;
 using $project_name.Application.Utilities;
 using $project_name.Infrastructure.Utilities;
 using $project_name.Infrastructure.Data;
@@ -449,12 +479,12 @@ public static class ServiceExtensions
     public static IServiceCollection AddIdentityConfiguration(this IServiceCollection services, IConfiguration configuration)
     {
         /* ------- Register Identity ------- */
-        services.AddIdentity<IdentityUser<Guid>, IdentityRole<Guid>>()
+        services.AddIdentity<User, IdentityRole<Guid>>()
                 .AddEntityFrameworkStores<ApplicationDbContext>()
                 .AddSignInManager<ApplicationDbContext>()
                 .AddDefaultTokenProviders();
         /* ------- Get Default User Data from appsettings.json ------- */
-        services.Configure<IdentityUser<Guid>>(configuration.GetSection("DefaultUserModel"));
+        services.Configure<User>(configuration.GetSection("DefaultUserModel"));
         return services;
     }
 
@@ -500,8 +530,8 @@ public static class ServiceExtensions
 "@
 
     Set-Content -Path "$project_name.API/Utilities/WebApplicationExtensions.cs" -Value @"
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
+using $project_name.Domain.Models;
 
 namespace $project_name.Presentation.Utilities;
 
@@ -528,14 +558,14 @@ public static class WebAppExtensions
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
         await roleManager.CreateRolesIfNotExist(["User", "Admin"]);
         /* ------- Load Default User ------- */
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser<Guid>>>();
-        IdentityUser<Guid> user = scope.ServiceProvider.GetRequiredService<IOptions<IdentityUser<Guid>>>().Value;
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+        User user = scope.ServiceProvider.GetRequiredService<IOptions<User>>().Value;
         await userManager.CreateUserIfNotExist(user, "Admin");
     }
 
-    private static async Task CreateUserIfNotExist(this UserManager<IdentityUser<Guid>> userManager, IdentityUser<Guid> user, string role)
+    private static async Task CreateUserIfNotExist(this UserManager<User> userManager, User user, string role)
     {
-        IdentityUser<Guid>? existingUser = await userManager.FindByIdAsync(user.Id.ToString());
+        User? existingUser = await userManager.FindByIdAsync(user.Id.ToString());
         if(existingUser is not null) return;
         var result = await userManager.CreateAsync(user);
         if(!result.Succeeded)

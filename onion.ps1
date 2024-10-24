@@ -238,6 +238,7 @@ public static class DependencyInjection
     New-Item -ItemType Directory -Path "$project_name.Infrastructure/Utilities"
 
     Set-Content -Path "$project_name.Infrastructure/Data/ApplicationDbContext.cs" -Value @"
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using $project_name.Domain.Models;

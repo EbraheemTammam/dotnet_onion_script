@@ -530,6 +530,7 @@ public static class ServiceExtensions
 "@
 
     Set-Content -Path "$project_name.API/Utilities/WebApplicationExtensions.cs" -Value @"
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using $project_name.Domain.Models;
 

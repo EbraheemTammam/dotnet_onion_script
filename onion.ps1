@@ -463,7 +463,9 @@ public static class ServiceExtensions
         services.AddIdentityConfiguration(configuration);
         services.AddAuthentication();
         services.AddAuthorization();
-        services.AddJWTAuthentication(configuration);
+        # uncomment if want to use jwt
+        # DO NOT FORGET TO ADD JWT SETTINGS TO USER SECRETS
+        # services.AddJWTAuthentication(configuration);
         services.AddCorsConfiguration();
         services.AddIISIntegrationConfiguration();
         services.AddControllers();
@@ -609,3 +611,7 @@ app.Configure();
 app.Run();
 "@
 }
+
+    # initiate user secrets and add default sections
+    dotnet user-secrets init
+    dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost; Database=${project_name}_DB; TrustConnection=true; TrustServerCertificate=True;"

@@ -485,7 +485,9 @@ public static class ServiceExtensions
                 .AddSignInManager<ApplicationDbContext>()
                 .AddDefaultTokenProviders();
         /* ------- Get Default User Data from appsettings.json ------- */
-        services.Configure<User>(configuration.GetSection("DefaultUserModel"));
+        var defaultUserModel = configuration.GetSection("DefaultUserModel");
+        if (defaultUserModel.Exists())
+            services.Configure<User>(defaultUserModel);
         return services;
     }
 
@@ -561,8 +563,8 @@ public static class WebAppExtensions
         await roleManager.CreateRolesIfNotExist(["User", "Admin"]);
         /* ------- Load Default User ------- */
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
-        User user = scope.ServiceProvider.GetRequiredService<IOptions<User>>().Value;
-        await userManager.CreateUserIfNotExist(user, "Admin");
+        User? user = scope.ServiceProvider.GetService<IOptions<User>>()?.Value;
+        if(user is not null) await userManager.CreateUserIfNotExist(user, "Admin");
     }
 
     private static async Task CreateUserIfNotExist(this UserManager<User> userManager, User user, string role)

@@ -308,7 +308,7 @@ public class RepositoryManager : IRepositoryManager
         _context = context;
         _serviceProvider = serviceProvider;
     }
-    public void Dispose() => _context.Dispose();
+    public async void Dispose() => _context.DisposeAsync();
     public async Task Save() => await _context.SaveChangesAsync();
 }
 "@
@@ -485,7 +485,6 @@ public static class ServiceExtensions
         /* ------- Register Identity ------- */
         services.AddIdentity<User, IdentityRole<Guid>>()
                 .AddEntityFrameworkStores<ApplicationDbContext>()
-                .AddSignInManager<ApplicationDbContext>()
                 .AddDefaultTokenProviders();
         /* ------- Get Default User Data from appsettings.json ------- */
         var defaultUserModel = configuration.GetSection("DefaultUserModel");
@@ -612,8 +611,8 @@ app.Configure();
 
 app.Run();
 "@
-}
 
     # initiate user secrets and add default sections
     dotnet user-secrets init
     dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost; Database=${project_name}_DB; TrustConnection=true; TrustServerCertificate=True;"
+}

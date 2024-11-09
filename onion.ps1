@@ -393,16 +393,20 @@ public abstract class GenericController<TCreateDTO, TUpdateDTO, TResponseDTO> : 
         BaseResponse response = await _service.Create(createDTO);
         if(response.StatusCode != 201) return ProcessError(response);
         var result = response.GetResult<TResponseDTO>();
-        return Created($"/api/Products/{result!.GetType().GetProperty("Id")!.GetValue(result)}", result);
+        int index = this.GetType().ToString().Split('.').Last().IndexOf("Controller");
+        string path = this.GetType().ToString().Split('.').Last().Remove(index);
+        return Created($"/api/{path}/{result!.GetType().GetProperty("Id")!.GetValue(result)}", result);
     }
 
     [HttpPut]
     public async virtual Task<IActionResult> Update(Guid Id, TUpdateDTO updateDTO)
     {
         BaseResponse response = await _service.Update(Id, updateDTO);
+        int index = this.GetType().ToString().Split('.').Last().IndexOf("Controller");
+        string path = this.GetType().ToString().Split('.').Last().Remove(index);
         return response.StatusCode switch
         {
-            201 => Created($"/api/Products/{Id}", response.GetResult<TResponseDTO>()),
+            201 => Created($"/api/{path}/{Id}", response.GetResult<TResponseDTO>()),
             _ => ProcessError(response)
         };
     }

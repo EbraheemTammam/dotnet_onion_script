@@ -615,4 +615,10 @@ app.Configure();
 
 app.Run();
 "@
+
+    # initiate user secrets and add default sections
+    Set-Location "$project_name.API"
+    dotnet user-secrets init
+    dotnet user-secrets set "ConnectionStrings__DefaultConnection" "Server=localhost; Database=${project_name}_DB; TrustConnection=true; TrustServerCertificate=True;"
+    Set-Location ..
 }

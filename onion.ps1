@@ -39,7 +39,7 @@ function onion {
     dotnet add reference "../$project_name.Application"
     dotnet add reference "../$project_name.Infrastructure"
     dotnet add package Microsoft.EntityFrameworkCore.Tools
-    dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+    # dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
 
     Set-Location ..
 
@@ -497,29 +497,29 @@ public static class ServiceExtensions
         return services;
     }
 
-    public static IServiceCollection AddJWTAuthentication(this IServiceCollection services, IConfiguration configuration)
-    {
-        var jwtSettings = configuration.GetSection("JwtSettings");
-        services.AddAuthentication(options =>
-        {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        })
-        .AddJwtBearer(options =>
-        {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = jwtSettings["Issuer"],
-                ValidAudience = jwtSettings["Audience"],
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!))
-            };
-        });
-        return services;
-    }
+    # public static IServiceCollection AddJWTAuthentication(this IServiceCollection services, IConfiguration configuration)
+    # {
+    #     var jwtSettings = configuration.GetSection("JwtSettings");
+    #     services.AddAuthentication(options =>
+    #     {
+    #         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    #         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    #     })
+    #     .AddJwtBearer(options =>
+    #     {
+    #         options.TokenValidationParameters = new TokenValidationParameters
+    #         {
+    #             ValidateIssuer = true,
+    #             ValidateAudience = true,
+    #             ValidateLifetime = true,
+    #             ValidateIssuerSigningKey = true,
+    #             ValidIssuer = jwtSettings["Issuer"],
+    #             ValidAudience = jwtSettings["Audience"],
+    #             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!))
+    #         };
+    #     });
+    #     return services;
+    # }
 
     public static IServiceCollection AddCorsConfiguration(this IServiceCollection services) =>
         services.AddCors(options =>
@@ -617,6 +617,8 @@ app.Run();
 "@
 
     # initiate user secrets and add default sections
+    Set-Location $project_name.API
     dotnet user-secrets init
-    dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost; Database=${project_name}_DB; TrustConnection=true; TrustServerCertificate=True;"
+    dotnet user-secrets set "ConnectionStrings__DefaultConnection" "Server=localhost; Database=${project_name}_DB; TrustConnection=true; TrustServerCertificate=True;"
+    Set-Location ..
 }

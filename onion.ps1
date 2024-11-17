@@ -55,7 +55,7 @@ namespace $project_name.Domain.Abstractions;
 
 public abstract class BaseModel
 {
-    public Guid Id { get; }
+    public Guid Id { get; private set; }
 }
 "@
 
@@ -387,7 +387,7 @@ public class RepositoryManager : IRepositoryManager
         _context = context;
         _serviceProvider = serviceProvider;
     }
-    public async void Dispose() => _context.DisposeAsync();
+    public async void Dispose() => await _context.DisposeAsync();
     public async Task Save() => await _context.SaveChangesAsync();
 }
 "@

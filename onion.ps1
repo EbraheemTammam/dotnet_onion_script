@@ -47,6 +47,7 @@ function onion {
     New-Item -ItemType Directory -Path "$project_name.Domain/Abstractions"
     New-Item -ItemType Directory -Path "$project_name.Domain/Models"
     New-Item -ItemType Directory -Path "$project_name.Domain/Interfaces"
+    New-Item -ItemType Directory -Path "$project_name.Domain/Specifications"
 
     Set-Content -Path "$project_name.Domain/Abstractions/BaseModel.cs" -Value @"
 namespace $project_name.Domain.Abstractions;
@@ -72,6 +73,67 @@ public abstract class ExtendedTimeStampedModel : TimeStampedModel
 }
 "@
 
+    Set-Content -Path "$project_name.Domain/Specifications/Specification.cs" -Value @"
+using System.Linq.Expressions;
+using $project_name.Domain.Abstractions;
+
+namespace $project_name.Domain.Specifications;
+
+public abstract class Specification<TModel> where TModel : BaseModel
+{
+    public Expression<Func<TModel, bool>>? Criteria { get; }
+    public List<Expression<Func<TModel, object>>>? Includes { get; } = new();
+    public Expression<Func<TModel, object>>? OrderBy { get; set; }
+
+    public Specification()
+    {
+
+    }
+
+    public Specification(Expression<Func<TModel, bool>> criteria)
+    {
+        Criteria = criteria;
+    }
+}
+
+public abstract class Specification<TModel, TResult> : Specification<TModel> where TModel : BaseModel
+{
+    public Specification(Expression<Func<TModel, bool>> criteria) : base(criteria) { }
+    public Expression<Func<TModel, TResult>>? Selector { get; set; }
+}
+"@
+
+    Set-Content -Path "$project_name.Domain/Specifications/SpecificationQueryBuilder.cs" -Value @"
+using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
+using $project_name.Domain.Abstractions;
+
+namespace $project_name.Domain.Specifications;
+
+public static class SpecificationQueryBuilder
+{
+    public static IQueryable<TModel> Build<TModel>(IQueryable<TModel> queryable, Specification<TModel> specification)
+    where TModel : BaseModel
+    {
+        if(specification.Criteria is not null)
+            queryable = queryable.Where(specification.Criteria);
+
+        if(specification.Includes is not null)
+            foreach(Expression<Func<TModel, object>> include in specification.Includes)
+                queryable = queryable.Include(include);
+
+        if(specification.OrderBy is not null)
+            queryable = queryable.OrderBy(specification.OrderBy);
+
+        return queryable;
+    }
+
+    public static IQueryable<TResult> Build<TModel, TResult>(IQueryable<TModel> queryable, Specification<TModel, TResult> specification)
+    where TModel : BaseModel =>
+        Build<TModel>(queryable, specification).Select(specification.Selector!);
+}
+"@
+
     Set-Content -Path "$project_name.Domain/Interfaces/IRepository.cs" -Value @"
 using System.Linq.Expressions;
 using $project_name.Domain.Abstractions;
@@ -81,8 +143,10 @@ namespace $project_name.Domain.Interfaces;
 public interface IRepository<TModel> where TModel : BaseModel
 {
     Task<IEnumerable<TModel>> GetAll();
-    Task<IEnumerable<TModel>> Filter(Expression<Func<TModel, bool>> func);
-    Task<TModel?> GetById(Guid id);
+    Task<IEnumerable<TModel>> GetAll(Specification<TModel> specification);
+    Task<IEnumerable<TResult>> GetAll<TResult>(Specification<TModel, TResult> specification);
+    Task<TModel?> GetOne(Specification<TModel> specification);
+    Task<TResult?> GetOne<TResult>(Specification<TModel, TResult> specification);
     Task<TModel> Add(TModel model);
     TModel Update(TModel model);
     void Delete(TModel model);
@@ -260,10 +324,10 @@ public sealed class ApplicationDbContext: IdentityDbContext<User, IdentityRole<G
 "@
 
     Set-Content -Path "$project_name.Infrastructure/Repositories/GenericRepository.cs" -Value @"
-using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using $project_name.Domain.Interfaces;
 using $project_name.Domain.Abstractions;
+using $project_name.Domain.Specifications;
 using $project_name.Infrastructure.Data;
 
 namespace $project_name.Infrastructure.Repositories;
@@ -277,16 +341,31 @@ public class GenericRepository<TModel> : IRepository<TModel> where TModel : Base
         _context = context;
         _dbSet = _context.Set<TModel>();
     }
+
     public async virtual Task<IEnumerable<TModel>> GetAll() =>
         await _dbSet.ToListAsync();
-    public async virtual Task<IEnumerable<TModel>> Filter(Expression<Func<TModel, bool>> filter) =>
-        await _dbSet.Where(filter).ToListAsync();
+
+    public async Task<IEnumerable<TModel>> GetAll(Specification<TModel> specification) =>
+        await SpecificationQueryBuilder.Build(_dbSet, specification).ToListAsync();
+
+    public async Task<IEnumerable<TResult>> GetAll<TResult>(Specification<TModel, TResult> specification) =>
+        await SpecificationQueryBuilder.Build(_dbSet, specification).ToListAsync();
+
+    public async Task<TModel?> GetOne(Specification<TModel> specification) =>
+        await SpecificationQueryBuilder.Build(_dbSet, specification).FirstOrDefaultAsync();
+
+    public async Task<TResult?> GetOne<TResult>(Specification<TModel, TResult> specification) =>
+        await SpecificationQueryBuilder.Build(_dbSet, specification).FirstOrDefaultAsync();
+
     public async virtual Task<TModel?> GetById(Guid id) =>
         await _dbSet.FindAsync(id);
+
     public async virtual Task<TModel> Add(TModel model) =>
         (await _dbSet.AddAsync(model)).Entity;
+
     public virtual TModel Update(TModel model) =>
         _dbSet.Update(model).Entity;
+
     public virtual void Delete(TModel model) =>
         _dbSet.Remove(model);
 }
@@ -449,8 +528,8 @@ public static class ResponseExtensions
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
+// using Microsoft.AspNetCore.Authentication.JwtBearer;
+// using Microsoft.IdentityModel.Tokens;
 using $project_name.Domain.Models;
 using $project_name.Application.Utilities;
 using $project_name.Infrastructure.Utilities;
@@ -468,9 +547,9 @@ public static class ServiceExtensions
         services.AddIdentityConfiguration(configuration);
         services.AddAuthentication();
         services.AddAuthorization();
-        # uncomment if want to use jwt
-        # DO NOT FORGET TO ADD JWT SETTINGS TO USER SECRETS
-        # services.AddJWTAuthentication(configuration);
+        // uncomment if want to use jwt
+        // DO NOT FORGET TO ADD JWT SETTINGS TO USER SECRETS
+        // services.AddJWTAuthentication(configuration);
         services.AddCorsConfiguration();
         services.AddIISIntegrationConfiguration();
         services.AddControllers();
@@ -497,29 +576,29 @@ public static class ServiceExtensions
         return services;
     }
 
-    # public static IServiceCollection AddJWTAuthentication(this IServiceCollection services, IConfiguration configuration)
-    # {
-    #     var jwtSettings = configuration.GetSection("JwtSettings");
-    #     services.AddAuthentication(options =>
-    #     {
-    #         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    #         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    #     })
-    #     .AddJwtBearer(options =>
-    #     {
-    #         options.TokenValidationParameters = new TokenValidationParameters
-    #         {
-    #             ValidateIssuer = true,
-    #             ValidateAudience = true,
-    #             ValidateLifetime = true,
-    #             ValidateIssuerSigningKey = true,
-    #             ValidIssuer = jwtSettings["Issuer"],
-    #             ValidAudience = jwtSettings["Audience"],
-    #             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!))
-    #         };
-    #     });
-    #     return services;
-    # }
+    // public static IServiceCollection AddJWTAuthentication(this IServiceCollection services, IConfiguration configuration)
+    // {
+    //     var jwtSettings = configuration.GetSection("JwtSettings");
+    //     services.AddAuthentication(options =>
+    //     {
+    //         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    //         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    //     })
+    //     .AddJwtBearer(options =>
+    //     {
+    //         options.TokenValidationParameters = new TokenValidationParameters
+    //         {
+    //             ValidateIssuer = true,
+    //             ValidateAudience = true,
+    //             ValidateLifetime = true,
+    //             ValidateIssuerSigningKey = true,
+    //             ValidIssuer = jwtSettings["Issuer"],
+    //             ValidAudience = jwtSettings["Audience"],
+    //             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!))
+    //         };
+    //     });
+    //     return services;
+    // }
 
     public static IServiceCollection AddCorsConfiguration(this IServiceCollection services) =>
         services.AddCors(options =>
@@ -621,4 +700,6 @@ app.Run();
     dotnet user-secrets init
     dotnet user-secrets set "ConnectionStrings__DefaultConnection" "Server=localhost; Database=${project_name}_DB; TrustConnection=true; TrustServerCertificate=True;"
     Set-Location ..
+
+    dotnet new gitignore
 }
